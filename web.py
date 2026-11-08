@@ -106,13 +106,18 @@ def webhook():
         historico.pop(chat_id, None)
         resposta = "Vamos começar uma conversa novinha! ❤️"
 
-    else:        except Exception as erro:
-            print("ERRO DA OPENAI:", repr(erro), flush=True)
-            resposta = (
-                "Ops! Tive um probleminha para responder. "
-                "Tenta falar comigo novamente daqui a pouquinho! ❤️"
-            )
-        try:
+  
+            
+    
+                  else:
+          try:
+              resposta = conversar_com_afonso(chat_id, texto)
+          except Exception as erro:
+              print("ERRO DA OPENAI:", repr(erro), flush=True)
+              resposta = (
+                  "Ops! Tive um probleminha para responder. "
+                  "Tenta falar comigo novamente daqui a pouquinho! ❤️"
+              )
             resposta = conversar_com_afonso(chat_id, texto)
         
 
