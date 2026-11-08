@@ -109,11 +109,7 @@ def webhook():
     else:
         try:
             resposta = conversar_com_afonso(chat_id, texto)
-        except Exception:
-            resposta = (
-                "Ops! Tive um probleminha para responder. "
-                "Tenta falar comigo novamente daqui a pouquinho! ❤️"
-            )
+        
 
     enviar_mensagem(chat_id, resposta)
     return "OK"
