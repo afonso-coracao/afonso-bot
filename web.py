@@ -104,12 +104,10 @@ def webhook():
 
     elif texto.startswith("/reset"):
         historico.pop(chat_id, None)
-        resposta = "Vamos começar uma conversa novinha! ❤️"
 
-  
-            
-    
-                  else:
+                 resposta = "Vamos começar uma conversa novinha! ❤️"
+
+      else:
           try:
               resposta = conversar_com_afonso(chat_id, texto)
           except Exception as erro:
@@ -118,8 +116,9 @@ def webhook():
                   "Ops! Tive um probleminha para responder. "
                   "Tenta falar comigo novamente daqui a pouquinho! ❤️"
               )
-            resposta = conversar_com_afonso(chat_id, texto)
-        
+
+    enviar_mensagem(chat_id, resposta)
+    return "OK" 
 
     enviar_mensagem(chat_id, resposta)
     return "OK"
