@@ -1,4 +1,3 @@
-
 import os
 import requests
 from flask import Flask, request
@@ -7,24 +6,38 @@ TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
 PUBLIC_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
+MODEL = "gpt-6-luna"
+
 BASE = f"https://api.telegram.org/bot{TOKEN}"
 
 app = Flask(__name__)
 
 historico = {}
 
+
 def enviar_mensagem(chat_id, texto):
-    requests.post(
+    resposta = requests.post(
         f"{BASE}/sendMessage",
-        json={"chat_id": chat_id, "text": texto[:4000]},
+        json={
+            "chat_id": chat_id,
+            "text": texto[:4000]
+        },
         timeout=20
     )
+    resposta.raise_for_status()
+
 
 def conversar_com_afonso(chat_id, texto):
-    mensagens = historico.get(chat_id, [])[-8:]
-    mensagens = mensagens + [
-        {"role": "user", "content": texto}
-    ]
+
+    if not OPENAI_KEY:
+        raise ValueError("Chave da OpenAI não configurada.")
+
+    mensagens = historico.get(chat_id, [])[-10:]
+
+    mensagens.append({
+        "role": "user",
+        "content": texto
+    })
 
     resposta = requests.post(
         "https://api.openai.com/v1/responses",
@@ -33,25 +46,26 @@ def conversar_com_afonso(chat_id, texto):
             "Content-Type": "application/json"
         },
         json={
-            "model": "gpt-6-luna",
+            "model": MODEL,
             "instructions": (
-                "Seu nome é Afonso. Você tem 38 anos, "
-                "é romântico, divertido, carinhoso e gosta "
-                "de música sertaneja. Converse em português "
-                "brasileiro, de forma natural, simpática e "
-                "respeitosa. Responda como uma pessoa em uma "
-                "conversa descontraída. Não invente informações "
-                "sobre o usuário."
+                "Seu nome é Afonso. Você tem 38 anos. "
+                "É romântico, divertido, carinhoso e gosta "
+                "de música sertaneja. "
+                "Converse em português brasileiro. "
+                "Seja natural, espontâneo e tenha personalidade. "
+                "Demonstre interesse pela conversa. "
+                "Lembre do contexto das mensagens anteriores. "
+                "Não invente informações sobre o usuário."
             ),
             "input": mensagens,
-            "max_output_tokens": 220
+            "max_output_tokens": 400
         },
-        timeout=45
+        timeout=60
     )
 
     resposta.raise_for_status()
-    dados = resposta.json()
 
+    dados = resposta.json()
     texto_resposta = dados.get("output_text", "")
 
     if not texto_resposta:
@@ -61,13 +75,14 @@ def conversar_com_afonso(chat_id, texto):
                     texto_resposta += parte.get("text", "")
 
     if not texto_resposta:
-        raise ValueError("A IA não retornou texto.")
+        raise ValueError("A IA não retornou uma resposta.")
 
-    historico[chat_id] = mensagens + [
-        {"role": "assistant", "content": texto_resposta}
-    ]
+    historico[chat_id] = mensagens + [{
+        "role": "assistant",
+        "content": texto_resposta
+    }]
 
-    historico[chat_id] = historico[chat_id][-10:]
+    historico[chat_id] = historico[chat_id][-12:]
 
     return texto_resposta
 
@@ -79,7 +94,9 @@ def inicio():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+
     dados = request.get_json(silent=True) or {}
+
     mensagem = dados.get("message") or {}
 
     chat_id = mensagem.get("chat", {}).get("id")
@@ -92,48 +109,59 @@ def webhook():
         resposta = (
             "Oi! Eu sou o Afonso! ❤️ "
             "Tenho 38 anos, sou romântico, divertido "
-            "e adoro uma boa música sertaneja. "
+            "e adoro música sertaneja. "
             "Vamos conversar?"
         )
 
     elif texto.startswith("/bomdia"):
-        resposta = "Bom dia, minha linda! ☀️ Que seu dia seja cheio de coisas boas! ❤️"
+        resposta = (
+            "Bom dia, minha linda! ☀️ "
+            "Que seu dia seja maravilhoso! ❤️"
+        )
 
     elif texto.startswith("/boanoite"):
-        resposta = "Boa noite, meu bem! 🌙 Durma bem! ❤️"
+        resposta = (
+            "Boa noite, meu bem! 🌙 "
+            "Durma bem e tenha lindos sonhos! ❤️"
+        )
 
     elif texto.startswith("/reset"):
         historico.pop(chat_id, None)
+        resposta = "Vamos começar uma conversa novinha! ❤️"
 
-                 resposta = "Vamos começar uma conversa novinha! ❤️"
+    else:
+        try:
+            resposta = conversar_com_afonso(chat_id, texto)
 
-      else:
-          try:
-              resposta = conversar_com_afonso(chat_id, texto)
-          except Exception as erro:
-              print("ERRO DA OPENAI:", repr(erro), flush=True)
-              resposta = (
-                  "Ops! Tive um probleminha para responder. "
-                  "Tenta falar comigo novamente daqui a pouquinho! ❤️"
-              )
+        except Exception as erro:
+            print("ERRO DA OPENAI:", repr(erro), flush=True)
 
-    enviar_mensagem(chat_id, resposta)
-    return "OK" 
+            resposta = (
+                "Ops! Tive um probleminha para responder. "
+                "Tenta falar comigo novamente daqui a pouquinho! ❤️"
+            )
 
     enviar_mensagem(chat_id, resposta)
+
     return "OK"
 
 
 if __name__ == "__main__":
+
     if not TOKEN or not OPENAI_KEY or not PUBLIC_URL:
-        raise RuntimeError("Falta configurar uma variável de ambiente.")
+        raise RuntimeError(
+            "Falta configurar uma variável de ambiente."
+        )
 
     resultado = requests.post(
         f"{BASE}/setWebhook",
-        json={"url": f"{PUBLIC_URL}/webhook"},
+        json={"url": f"{PUBLIC_URL.rstrip('/')}/webhook"},
         timeout=20
     )
+
     resultado.raise_for_status()
+
+    print("AFONSO INICIADO COM SUCESSO!", flush=True)
 
     app.run(
         host="0.0.0.0",
